@@ -6,6 +6,11 @@ const int fsrPin2 = 39;
 int targetValues[2] = {0, 0}; // Targets for sensor 1 and sensor 2
 bool targetsEntered = false;
 
+//NEW: variables for calibration data
+const float calibrationFactor = 50.0 / 2048.0; // calibration factor (50g / raw ADC value at 50g) CHANGE ADC VAL IF NEEDED
+const int referenceADCValue = 2048; // reference ADC value for known weight, 50g
+
+
 void setup() {
   Serial.begin(9600);
   Serial.println("Enter 2 target values for sensors, separated by spaces:");
@@ -31,6 +36,18 @@ void loop() {
     Serial.print("Sensor 2 Average: ");
     Serial.println(average2);
 
+
+  // NEW: Calculating the estimated weight based on sensor average ADC value 
+    float weight1 = calculateWeight(average1);
+    float weight2 = calculateWeight(average2);
+    Serial.print("Estimated Weight on Sensor 1: ");
+    Serial.print(weight1);
+    Serial.println(" g");
+    Serial.print("Estimated Weight on Sensor 2: ");
+    Serial.print(weight2);
+    Serial.println(" g");
+
+
     if (abs(average1 - targetValues[0]) <= 500 && abs(average2 - targetValues[1]) <= 500) {
       Serial.println("Good");
     } else {
@@ -41,6 +58,7 @@ void loop() {
   delay(1000);
 }
 
+// Function averaging the last 5 sensor readings
 int readAndAverageSensor(int pin) {
   int values[5] = {0};
   int sum = 0;
@@ -77,3 +95,11 @@ int readAndAverageSensor(int pin) {
     return readAndAverageSensor(pin);
   }
 }
+
+
+// NEW: Function to calcuate weight from raw ADC value
+float calculateWeight(int rawADC) {
+  float weight = (rawADC - referenceADCValue) * calibrationFactor; // Convert ADC reading to weight
+  return weight;
+}
+
