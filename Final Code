@@ -1,0 +1,89 @@
+#include <Arduino.h>
+
+//pin locations on microcontroller
+const int fsrPin1 = 36;
+const int fsrPin2 = 39;
+
+int targetValues[2] = {0, 0}; // Targets for sensor 1 and sensor 2
+bool targetsEntered = false;
+
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("Enter 2 target values for sensors, separated by spaces:"); //target values are based on trial and error values
+}
+
+void loop() {
+  if (!targetsEntered && Serial.available()) { //if the target entered is false and there is space available
+    targetValues[0] = Serial.parseInt(); //front sensor
+    targetValues[1] = Serial.parseInt(); //back sensor
+    Serial.print("Targets set: ");
+    Serial.print(targetValues[0]);
+    Serial.print(", ");
+    Serial.println(targetValues[1]);
+    targetsEntered = true;
+  }
+
+  if (targetsEntered) {
+    int average1 = readAndAverageSensor(fsrPin1); //front sensor average values
+    int average2 = readAndAverageSensor(fsrPin2); //back sensor average values
+    
+    Serial.print("Sensor 1 Average: ");
+    Serial.println(average1); 
+    Serial.print("Sensor 2 Average: ");
+    Serial.println(average2);
+    
+    //the average should fall within the range of the target value 
+    if (abs(average1 - targetValues[0]) <= 409.6 && abs(average2 - targetValues[1]) <= 409.6) { //error can go upto 10% of the max reading 409.6
+      Serial.println("Good"); //indicates good placement on the sensor within the error range of the sensor itself
+    } else {
+      Serial.println("Bad"); //indicates bad placement of foot or sensors
+    }
+
+    if (abs(average1 - average2) >= abs(average1 + average2)*0.1) { //Source indicates 10% (55% to 45%) more pressure on front than middle
+      Serial.println("Normal Foot");
+    } else {
+      Serial.println("Flat Foot");
+    }
+  }
+  // Delay to prevent overloading output
+  delay(1000);
+}
+
+// Function averaging the last 5 sensor readings
+int readAndAverageSensor(int pin) {
+  int values[5] = {0};
+  int sum = 0;
+
+  // Collect 5 values
+  for (int i = 0; i < 5; i++) {
+    values[i] = analogRead(pin);
+    delay(100); // Delay between reads
+    sum += values[i];
+  }
+
+  // Print the collected values
+  Serial.print("Pin ");
+  Serial.print(pin);
+  Serial.print(" - Last 5 values: ");
+  for (int i = 0; i < 5; i++) {
+    Serial.print(values[i]);
+    if (i < 4) Serial.print(", ");
+  }
+  Serial.println();
+
+  // Check if the collected values are within 50 units of each other
+  int minVal = values[0], maxVal = values[0];
+  for (int i = 1; i < 5; i++) {
+    if (values[i] < minVal) minVal = values[i];
+    if (values[i] > maxVal) maxVal = values[i];
+  }
+
+  if (maxVal - minVal <= 200) {
+    // If values are within the range, return the average
+    return sum / 5;
+  } else {
+    // If not, collect new set
+    return readAndAverageSensor(pin);
+  }
+}
